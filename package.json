@@ -64,5 +64,7 @@
         }
       }
     ]
-  }
+  },
+  "main": "./src/lib/index.ts",
+  "exports": "./src/lib/index.ts"
 }
