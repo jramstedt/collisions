@@ -109,6 +109,28 @@ export class Collisions {
 	}
 
 	/**
+	* Attached already existing bodies into the collision system bvh tree
+	*/
+	attach(...bodies: Body[]): Collisions {
+		for (const body of bodies) {
+			this._bvh.insert(body, true);
+		}
+
+		return this;
+	}
+
+	/**
+	 * Detach bodies from the collision system bvh tree
+	 */
+	detach(...bodies: Body[]): Collisions {
+		for (const body of bodies) {
+			this._bvh.remove(body, true);
+		}
+
+		return this;
+	}
+
+	/**
 	 * Updates the collision system. This should be called before any collisions are tested.
 	 */
 	update(): Collisions {
