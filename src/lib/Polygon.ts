@@ -1,4 +1,4 @@
-import {Body} from './Body.js';
+import {Body} from './Body';
 
 /**
  * A polygon used to detect collisions
@@ -8,7 +8,7 @@ export class Polygon extends Body {
 	scale_x: number;
 	scale_y: number;
 
-	override _polygon = true;
+	override readonly _polygon = true;
 	_x: number;
 	_y: number;
 	_angle: number; // The angle of the body in radians
@@ -18,10 +18,12 @@ export class Polygon extends Body {
 	_min_y = 0;
 	_max_x = 0;
 	_max_y = 0;
-	_points: null | Float64Array = null;
-	_coords: null | Float64Array = null;
-	_edges: null | Float64Array = null;
-	_normals: null | Float64Array = null;
+
+	_points!: Float64Array;
+	_coords!: Float64Array;
+	_edges!: Float64Array;
+	_normals!: Float64Array;
+
 	_dirty_coords = true;
 	_dirty_normals = true;
 
@@ -74,7 +76,7 @@ export class Polygon extends Body {
 			this._calculateCoords();
 		}
 
-		const coords = this._coords!;
+		const coords = this._coords;
 
 		if (coords.length === 2) {
 			context.moveTo(coords[0], coords[1]);
@@ -125,8 +127,8 @@ export class Polygon extends Body {
 		const angle = this.angle;
 		const scale_x = this.scale_x;
 		const scale_y = this.scale_y;
-		const points = this._points!;
-		const coords = this._coords!;
+		const points = this._points;
+		const coords = this._coords;
 		const count = points.length;
 
 		let min_x: number = 0;
@@ -189,9 +191,9 @@ export class Polygon extends Body {
 	 * Calculates the normals and edges of the polygon's sides
 	 */
 	_calculateNormals(): void {
-		const coords = this._coords!;
-		const edges = this._edges!;
-		const normals = this._normals!;
+		const coords = this._coords;
+		const edges = this._edges;
+		const normals = this._normals;
 		const count = coords.length;
 
 		for (let ix = 0, iy = 1; ix < count; ix += 2, iy += 2) {

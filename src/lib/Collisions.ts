@@ -1,10 +1,10 @@
-import {BVH} from './BVH.js';
-import {Circle} from './Circle.js';
-import {Point} from './Point.js';
-import {Polygon} from './Polygon.js';
-import {Result} from './Result.js';
-import type {Body, SomeBody} from './Body.js';
-import {SAT} from './SAT.js';
+import {BVH} from './BVH';
+import {Circle} from './Circle';
+import {Point} from './Point';
+import {Polygon} from './Polygon';
+import {Result} from './Result';
+import type {Body} from './Body';
+import {SAT} from './SAT';
 
 /**
  * A collision system used to track bodies in order to improve collision detection performance
@@ -89,7 +89,7 @@ export class Collisions {
 	/**
 	 * Inserts bodies into the collision system
 	 */
-	insert(...bodies: SomeBody[]): Collisions {
+	insert(...bodies: Body[]): Collisions {
 		for (const body of bodies) {
 			this._bvh.insert(body, false);
 		}
@@ -100,7 +100,7 @@ export class Collisions {
 	/**
 	 * Removes bodies from the collision system
 	 */
-	remove(...bodies: SomeBody[]): Collisions {
+	remove(...bodies: Body[]): Collisions {
 		for (const body of bodies) {
 			this._bvh.remove(body, false);
 		}
@@ -138,7 +138,7 @@ export class Collisions {
 	 * Returns a list of potential collisions for a body
 	 * 		body: The body to test for potential collisions against
 	 */
-	potentials(body: SomeBody): Body[] {
+	potentials(body: Body): Body[] {
 		return this._bvh.potentials(body);
 	}
 
@@ -149,7 +149,7 @@ export class Collisions {
 	 * 		result: A Result object on which to store information about the collision
 	 * 		aabb: Set to false to skip the AABB test (useful if you use your own potential collision heuristic)
 	 */
-	collides(source: SomeBody, target: SomeBody, result: Result | null = null, aabb = true): boolean {
+	collides(source: Body, target: Body, result: Result | null = null, aabb = true): boolean {
 		return SAT(source, target, result, aabb);
 	}
 }

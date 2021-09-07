@@ -1,4 +1,4 @@
-import {Body} from './Body.js';
+import {Body} from './Body';
 
 /**
  * A circle used to detect collisions
@@ -7,7 +7,7 @@ export class Circle extends Body {
 	radius: number;
 	scale: number;
 
-	override _circle = true;
+	override readonly _circle = true;
 
 	/**
 	 * x: The starting X coordinate

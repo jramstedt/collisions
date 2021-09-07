@@ -1,11 +1,10 @@
-import {Polygon} from './Polygon.js';
+import {Polygon} from './Polygon';
 
 /**
  * A point used to detect collisions
  */
 export class Point extends Polygon {
-	// TODO should this set `_polygon` to `false`?
-	override _point = true;
+	override readonly _point = true;
 
 	/**
 	 * x: The starting X coordinate

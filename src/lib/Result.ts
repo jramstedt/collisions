@@ -1,4 +1,4 @@
-import type {SomeBody} from './Body';
+import type {Body} from './Body';
 
 /**
  * An object used to collect the detailed results of a collision test
@@ -10,10 +10,10 @@ export class Result {
 	collision = false;
 
 	// The source body tested
-	a: SomeBody | null = null;
+	a: Body | null = null;
 
 	// The target body tested against
-	b: SomeBody | null = null;
+	b: Body | null = null;
 
 	// True if A is completely contained within B
 	a_in_b = false;
@@ -22,7 +22,7 @@ export class Result {
 	b_in_a = false;
 
 	// The magnitude of the shortest axis of overlap
-	overlap: number | null = 0; // TODO this type as used is a mismatch from the original docs
+	overlap: number = 0;
 
 	// The X direction of the shortest axis of overlap
 	overlap_x = 0;

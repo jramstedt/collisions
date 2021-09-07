@@ -1,13 +1,8 @@
-import type {BVH} from './BVH.js';
-import type {BVHBranch} from './BVHBranch.js';
-import type {Circle} from './Circle.js';
-import type {Point} from './Point.js';
-import type {Polygon} from './Polygon.js';
-import {Result} from './Result.js';
-import {SAT} from './SAT.js';
+import type {BVH} from './BVH';
+import type {BVHBranch} from './BVHBranch';
 
-// TODO name? lol
-export type SomeBody = Circle | Polygon | Point;
+import {Result} from './Result';
+import {SAT} from './SAT';
 
 /**
  * The base class for bodies used to detect collisions
@@ -17,12 +12,13 @@ export abstract class Body {
 	y: number; // The Y coordinate of the body
 	padding: number; // The amount to pad the bounding volume when testing for potential collisions
 
-	_circle = false;
-	_polygon = false;
-	_point = false;
+	readonly _circle: boolean = false;
+	readonly _polygon: boolean = false;
+	readonly _point: boolean = false;
+	readonly _bvh_branch = false;
+
 	_bvh: null | BVH = null;
 	_bvh_parent: null | BVHBranch = null;
-	_bvh_branch = false;
 	_bvh_padding: number;
 	_bvh_min_x = 0;
 	_bvh_min_y = 0;
@@ -49,8 +45,8 @@ export abstract class Body {
 	 * 		result: A `Result` object on which to store information about the collision
 	 * 		aabb: Set to false to skip the AABB test (useful if you use your own potential collision heuristic)
 	 */
-	collides(target: SomeBody, result: Result | null = null, aabb = true): boolean {
-		return SAT(this as any, target, result, aabb); // TODO type?
+	collides(target: Body, result: Result | null = null, aabb = true): boolean {
+		return SAT(this, target, result, aabb);
 	}
 
 	/**
@@ -73,7 +69,7 @@ export abstract class Body {
 		const bvh = this._bvh;
 
 		if (bvh) {
-			bvh.remove(this as any, false); // TODO type?
+			bvh.remove(this, false);
 		}
 	}
 

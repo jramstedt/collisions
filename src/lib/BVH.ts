@@ -1,14 +1,14 @@
-import {BVHBranch} from './BVHBranch.js';
-import type {Body, SomeBody} from './Body.js';
-import type {Polygon} from './Polygon.js';
-import type {Circle} from './Circle.js';
+import type {Body} from './Body';
+
+import {BVHBranch, isBVHBranch} from './BVHBranch';
+import { isCircle, isPolygon } from './checks';
 
 /**
  * A Bounding Volume Hierarchy (BVH) used to find potential collisions quickly
  */
 export class BVH {
-	_hierarchy: BVHBranch | SomeBody | null = null;
-	_bodies: SomeBody[] = [];
+	_hierarchy: BVHBranch | Body | null = null;
+	_bodies: Body[] = [];
 	_dirty_branches: BVHBranch[] = [];
 
 	/**
@@ -16,7 +16,7 @@ export class BVH {
 	 * 		body: The body to insert
 	 * 		updating: Set to true if the body already exists in the BVH (used internally when updating the body's position)
 	 */
-	insert(body: SomeBody, updating = false): void {
+	insert(body: Body, updating = false): void {
 		if (!updating) {
 			const bvh = body._bvh;
 
@@ -28,12 +28,10 @@ export class BVH {
 			this._bodies.push(body);
 		}
 
-		const polygon = body._polygon;
-		const body_x = body.x;
-		const body_y = body.y;
+		const polygon = isPolygon(body);
+		const circle = isCircle(body);
 
 		if (polygon) {
-			body = body as Polygon;
 			if (
 				body._dirty_coords ||
 				body.x !== body._x ||
@@ -47,11 +45,11 @@ export class BVH {
 		}
 
 		const padding = body._bvh_padding;
-		const radius = polygon ? 0 : (body as Circle).radius * (body as Circle).scale;
-		const body_min_x = (polygon ? (body as Polygon)._min_x : body_x - radius) - padding;
-		const body_min_y = (polygon ? (body as Polygon)._min_y : body_y - radius) - padding;
-		const body_max_x = (polygon ? (body as Polygon)._max_x : body_x + radius) + padding;
-		const body_max_y = (polygon ? (body as Polygon)._max_y : body_y + radius) + padding;
+		const radius = circle ? body.radius * body.scale : 0
+		const body_min_x = (polygon ? body._min_x : body.x - radius) - padding;
+		const body_min_y = (polygon ? body._min_y : body.y - radius) - padding;
+		const body_max_x = (polygon ? body._max_x : body.x + radius) + padding;
+		const body_max_y = (polygon ? body._max_y : body.y + radius) + padding;
 
 		body._bvh_min_x = body_min_x;
 		body._bvh_min_y = body_min_y;
@@ -61,15 +59,14 @@ export class BVH {
 		let current = this._hierarchy;
 		let sort = 0;
 
-		if (!current) {
+		if (current === null) {
 			this._hierarchy = body;
 		} else {
-			while (true) {
-				current = current as BVHBranch;
+			while (current !== null) {
+				if (isBVHBranch(current)) { // Branch
+					if (current._bvh_left === null || current._bvh_right === null) break
 
-				// Branch
-				if (current!._bvh_branch) {
-					const left: BVHBranch = current._bvh_left as any;
+					const left = current._bvh_left as Body | BVHBranch; // FIXME TypeScript bug
 					const left_min_y = left._bvh_min_y;
 					const left_max_x = left._bvh_max_x;
 					const left_max_y = left._bvh_max_y;
@@ -78,11 +75,10 @@ export class BVH {
 					const left_new_max_x = body_max_x > left_max_x ? body_max_x : left_max_x;
 					const left_new_max_y = body_max_y > left_max_y ? body_max_y : left_max_y;
 					const left_volume = (left_max_x - left._bvh_min_x) * (left_max_y - left_min_y);
-					const left_new_volume =
-						(left_new_max_x - left_new_min_x) * (left_new_max_y - left_new_min_y);
+					const left_new_volume = (left_new_max_x - left_new_min_x) * (left_new_max_y - left_new_min_y);
 					const left_difference = left_new_volume - left_volume;
 
-					const right: BVHBranch = current._bvh_right as any;
+					const right = current._bvh_right as Body | BVHBranch; // FIXME TypeScript bug
 					const right_min_x = right._bvh_min_x;
 					const right_min_y = right._bvh_min_y;
 					const right_max_x = right._bvh_max_x;
@@ -92,8 +88,7 @@ export class BVH {
 					const right_new_max_x = body_max_x > right_max_x ? body_max_x : right_max_x;
 					const right_new_max_y = body_max_y > right_max_y ? body_max_y : right_max_y;
 					const right_volume = (right_max_x - right_min_x) * (right_max_y - right_min_y);
-					const right_new_volume =
-						(right_new_max_x - right_new_min_x) * (right_new_max_y - right_new_min_y);
+					const right_new_volume = (right_new_max_x - right_new_min_x) * (right_new_max_y - right_new_min_y);
 					const right_difference = right_new_volume - right_volume;
 
 					current._bvh_sort = sort++;
@@ -103,9 +98,7 @@ export class BVH {
 					current._bvh_max_y = left_new_max_y > right_new_max_y ? left_new_max_y : right_new_max_y;
 
 					current = left_difference <= right_difference ? left : right;
-				}
-				// Leaf
-				else {
+				} else { // Leaf
 					const grandparent = current._bvh_parent;
 					const parent_min_x = current._bvh_min_x;
 					const parent_min_y = current._bvh_min_y;
@@ -141,7 +134,7 @@ export class BVH {
 	 * 		body: The body to remove
 	 * 		updating: Set to true if this is a temporary removal (used internally when updating the body's position)
 	 */
-	remove(body: SomeBody, updating = false): void {
+	remove(body: Body, updating = false): void {
 		if (!updating) {
 			const bvh = body._bvh;
 
@@ -159,15 +152,17 @@ export class BVH {
 			return;
 		}
 
-		const parent = body._bvh_parent!;
-		const grandparent = parent._bvh_parent!;
-		const parent_left = parent._bvh_left!;
-		const sibling = parent_left === body ? parent._bvh_right! : parent_left;
+		const parent = body._bvh_parent;
+		if (parent === null || parent._bvh_left === null || parent._bvh_right === null) return
+
+		const grandparent = parent._bvh_parent;
+		const parent_left = parent._bvh_left;
+		const sibling = parent_left === body ? parent._bvh_right : parent_left;
 
 		sibling._bvh_parent = grandparent;
 
-		if (sibling._bvh_branch) {
-			(sibling as BVHBranch)._bvh_sort = parent._bvh_sort;
+		if (isBVHBranch(sibling)) {
+			sibling._bvh_sort = parent._bvh_sort;
 		}
 
 		if (grandparent) {
@@ -177,16 +172,18 @@ export class BVH {
 				grandparent._bvh_right = sibling;
 			}
 
-			let branch = grandparent;
+			let branch: BVHBranch | null = grandparent;
 
-			while (branch) {
-				const left = branch._bvh_left!;
+			while (branch !== null) {
+				if (branch._bvh_left === null || branch._bvh_right === null) break
+
+				const left = branch._bvh_left;
 				const left_min_x = left._bvh_min_x;
 				const left_min_y = left._bvh_min_y;
 				const left_max_x = left._bvh_max_x;
 				const left_max_y = left._bvh_max_y;
 
-				const right = branch._bvh_right!;
+				const right = branch._bvh_right;
 				const right_min_x = right._bvh_min_x;
 				const right_min_y = right._bvh_min_y;
 				const right_max_x = right._bvh_max_x;
@@ -197,7 +194,7 @@ export class BVH {
 				branch._bvh_max_x = left_max_x > right_max_x ? left_max_x : right_max_x;
 				branch._bvh_max_y = left_max_y > right_max_y ? left_max_y : right_max_y;
 
-				branch = branch._bvh_parent!;
+				branch = branch._bvh_parent;
 			}
 		} else {
 			this._hierarchy = sibling;
@@ -224,10 +221,7 @@ export class BVH {
 			}
 
 			if (!update) {
-				const polygon = body._polygon;
-
-				if (polygon) {
-					body = body as Polygon;
+				if (isPolygon(body)) {
 					if (
 						body._dirty_coords ||
 						body.x !== body._x ||
@@ -242,11 +236,11 @@ export class BVH {
 
 				const x = body.x;
 				const y = body.y;
-				const radius = polygon ? 0 : (body as Circle).radius * (body as Circle).scale;
-				const min_x = polygon ? (body as Polygon)._min_x : x - radius;
-				const min_y = polygon ? (body as Polygon)._min_y : y - radius;
-				const max_x = polygon ? (body as Polygon)._max_x : x + radius;
-				const max_y = polygon ? (body as Polygon)._max_y : y + radius;
+				const radius = isCircle(body) ? body.radius * body.scale : 0
+				const min_x = isPolygon(body) ? body._min_x : x - radius;
+				const min_y = isPolygon(body) ? body._min_y : y - radius;
+				const max_x = isPolygon(body) ? body._max_x : x + radius;
+				const max_y = isPolygon(body) ? body._max_y : y + radius;
 
 				update =
 					min_x < body._bvh_min_x ||
@@ -273,20 +267,18 @@ export class BVH {
 		const max_x = body._bvh_max_x;
 		const max_y = body._bvh_max_y;
 
-		let current: Body | BVHBranch | null = this._hierarchy;
+		let current = this._hierarchy;
 		let traverse_left = true;
 
-		if (!current || !current._bvh_branch) {
+		if (!isBVHBranch(current)) {
 			return results;
 		}
 
-		while (current) {
+		while (current !== null) {
 			if (traverse_left) {
 				traverse_left = false;
 
-				let left: Body | BVHBranch | null = current._bvh_branch
-					? (current as BVHBranch)._bvh_left
-					: null;
+				let left: Body | BVHBranch | null = isBVHBranch(current) ? current._bvh_left : null;
 
 				while (
 					left &&
@@ -296,12 +288,11 @@ export class BVH {
 					left._bvh_min_y <= max_y
 				) {
 					current = left;
-					left = current._bvh_branch ? (current as BVHBranch)._bvh_left : null;
+					left = isBVHBranch(current) ? current._bvh_left : null;
 				}
 			}
-
-			const branch: boolean = current._bvh_branch;
-			const right: Body | BVHBranch | null = branch ? (current as BVHBranch)._bvh_right : null;
+			
+			const right: Body | BVHBranch | null = isBVHBranch(current) ? current._bvh_right : null;
 
 			if (
 				right &&
@@ -313,16 +304,18 @@ export class BVH {
 				current = right;
 				traverse_left = true;
 			} else {
-				if (!branch && current !== body) {
-					results.push(current as Body);
+				if (current === null) break;
+
+				if (!isBVHBranch(current) && current !== body) {
+					results.push(current);
 				}
 
-				let parent: any = current._bvh_parent;
+				let parent: BVHBranch | null = current._bvh_parent;
 
 				if (parent) {
 					while (parent && parent._bvh_right === current) {
 						current = parent;
-						parent = current!._bvh_parent;
+						parent = current._bvh_parent;
 					}
 
 					current = parent;
@@ -353,27 +346,26 @@ export class BVH {
 	 * 		context: The context to draw to
 	 */
 	drawBVH(context: CanvasRenderingContext2D): void {
-		let current: BVHBranch | SomeBody | null = this._hierarchy;
+		let current = this._hierarchy;
 		let traverse_left = true;
 
 		while (current) {
 			if (traverse_left) {
 				traverse_left = false;
 
-				let left = current._bvh_branch ? (current as BVHBranch)._bvh_left : null;
+				let left = isBVHBranch(current) ? current._bvh_left : null;
 
 				while (left) {
 					current = left;
-					left = current!._bvh_branch ? (current as BVHBranch)._bvh_left : null;
+					left = isBVHBranch(current) ? current._bvh_left : null;
 				}
 			}
 
-			const branch: boolean = current._bvh_branch;
 			const min_x = current._bvh_min_x;
 			const min_y = current._bvh_min_y;
 			const max_x = current._bvh_max_x;
 			const max_y = current._bvh_max_y;
-			const right: any = branch ? (current as BVHBranch)._bvh_right : null;
+			const right = isBVHBranch(current) ? current._bvh_right : null;
 
 			context.moveTo(min_x, min_y);
 			context.lineTo(max_x, min_y);
@@ -381,16 +373,16 @@ export class BVH {
 			context.lineTo(min_x, max_y);
 			context.lineTo(min_x, min_y);
 
-			if (right) {
+			if (right !== null) {
 				current = right;
 				traverse_left = true;
 			} else {
-				let parent = current._bvh_parent!;
+				let parent = current._bvh_parent;
 
-				if (parent) {
+				if (parent !== null) {
 					while (parent && parent._bvh_right === current) {
 						current = parent;
-						parent = current._bvh_parent!;
+						parent = current._bvh_parent;
 					}
 
 					current = parent;

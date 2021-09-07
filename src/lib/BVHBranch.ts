@@ -1,15 +1,23 @@
-import type {SomeBody} from './Body';
+import type {Body} from './Body';
 
 const branch_pool: BVHBranch[] = [];
+
+export function isBVHBranch(branch: null | BVHBranch | Body): branch is BVHBranch {
+	if (branch === null)
+		return false
+
+	return branch._bvh_branch === true
+}
 
 /**
  * A branch within a BVH
  */
 export class BVHBranch {
-	_bvh_branch = true;
+	readonly _bvh_branch = true;
+
 	_bvh_parent: null | BVHBranch = null;
-	_bvh_left: null | BVHBranch | SomeBody = null;
-	_bvh_right: null | BVHBranch | SomeBody = null;
+	_bvh_left: null | BVHBranch | Body = null;
+	_bvh_right: null | BVHBranch | Body = null;
 	_bvh_sort = 0;
 	_bvh_min_x = 0;
 	_bvh_min_y = 0;
@@ -20,11 +28,7 @@ export class BVHBranch {
 	 * Returns a branch from the branch pool or creates a new branch
 	 */
 	static getBranch(): BVHBranch {
-		if (branch_pool.length) {
-			return branch_pool.pop()!;
-		}
-
-		return new BVHBranch();
+		return branch_pool.pop() ?? new BVHBranch();
 	}
 
 	/**

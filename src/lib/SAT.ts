@@ -1,7 +1,9 @@
-import type {SomeBody} from './Body.js';
-import type {Circle} from './Circle.js';
-import type {Polygon} from './Polygon.js';
-import type {Result} from './Result.js';
+import type {Body} from './Body';
+import type {Circle} from './Circle';
+import type {Polygon} from './Polygon';
+import type {Result} from './Result';
+
+import { isCircle, isPolygon } from './checks';
 
 /**
  * Determines if two bodies are colliding using the Separating Axis Theorem
@@ -10,24 +12,25 @@ import type {Result} from './Result.js';
  * 		result: A Result object on which to store information about the collision
  * 		aabb: Set to false to skip the AABB test (useful if you use your own collision heuristic)
  */
-export function SAT(a: SomeBody, b: SomeBody, result: Result | null = null, aabb = true): boolean {
-	const a_polygon = a._polygon;
-	const b_polygon = b._polygon;
+export function SAT(a: Body, b: Body, result: Result | null = null, aabb = true): boolean {
+	const a_polygon = isPolygon(a);
+	const a_circle = isCircle(a);
+	const b_polygon = isPolygon(b);
+	const b_circle = isCircle(b);
 
 	let collision = false;
 
-	if (result) {
+	if (result !== null) {
 		result.a = a;
 		result.b = b;
 		result.a_in_b = true;
 		result.b_in_a = true;
-		result.overlap = null;
+		result.overlap = 0;
 		result.overlap_x = 0;
 		result.overlap_y = 0;
 	}
 
 	if (a_polygon) {
-		a = a as Polygon;
 		if (
 			a._dirty_coords ||
 			a.x !== a._x ||
@@ -41,7 +44,6 @@ export function SAT(a: SomeBody, b: SomeBody, result: Result | null = null, aabb
 	}
 
 	if (b_polygon) {
-		b = b as Polygon;
 		if (
 			b._dirty_coords ||
 			b.x !== b._x ||
@@ -55,24 +57,18 @@ export function SAT(a: SomeBody, b: SomeBody, result: Result | null = null, aabb
 	}
 
 	if (!aabb || aabbAABB(a, b)) {
-		a = a as Polygon;
 		if (a_polygon && a._dirty_normals) {
 			a._calculateNormals();
 		}
 
-		b = b as Polygon;
 		if (b_polygon && b._dirty_normals) {
 			b._calculateNormals();
 		}
 
-		collision =
-			a_polygon && b_polygon
-				? polygonPolygon(a, b, result)
-				: a_polygon
-				? polygonCircle(a, b as any, result, false)
-				: b_polygon
-				? polygonCircle(b, a as any, result, true)
-				: circleCircle(a as any, b as any, result);
+		if (a_polygon && b_polygon) collision = polygonPolygon(a, b, result)
+		else if (a_polygon && b_circle) collision = polygonCircle(a, b as any, result, false)
+		else if (a_circle && b_polygon) collision = polygonCircle(b, a as any, result, true)
+		else if (a_circle && b_circle) collision = circleCircle(a as any, b as any, result)
 	}
 
 	if (result) {
@@ -87,24 +83,24 @@ export function SAT(a: SomeBody, b: SomeBody, result: Result | null = null, aabb
  * 		a: The source body to test
  * 		b: The target body to test against
  */
-function aabbAABB(a: SomeBody, b: SomeBody): boolean {
-	const a_polygon = a._polygon;
+function aabbAABB(a: Body, b: Body): boolean {
+	const a_polygon = isPolygon(a);
 	const a_x = a_polygon ? 0 : a.x;
 	const a_y = a_polygon ? 0 : a.y;
-	const a_radius = a_polygon ? 0 : (a as Circle).radius * (a as Circle).scale;
-	const a_min_x = a_polygon ? (a as Polygon)._min_x : a_x - a_radius;
-	const a_min_y = a_polygon ? (a as Polygon)._min_y : a_y - a_radius;
-	const a_max_x = a_polygon ? (a as Polygon)._max_x : a_x + a_radius;
-	const a_max_y = a_polygon ? (a as Polygon)._max_y : a_y + a_radius;
+	const a_radius = isCircle(a) ? a.radius * a.scale : 0;
+	const a_min_x = a_polygon ? a._min_x : a_x - a_radius;
+	const a_min_y = a_polygon ? a._min_y : a_y - a_radius;
+	const a_max_x = a_polygon ? a._max_x : a_x + a_radius;
+	const a_max_y = a_polygon ? a._max_y : a_y + a_radius;
 
-	const b_polygon = b._polygon;
+	const b_polygon = isPolygon(b);
 	const b_x = b_polygon ? 0 : b.x;
 	const b_y = b_polygon ? 0 : b.y;
-	const b_radius = b_polygon ? 0 : (b as Circle).radius * (b as Circle).scale;
-	const b_min_x = b_polygon ? (b as Polygon)._min_x : b_x - b_radius;
-	const b_min_y = b_polygon ? (b as Polygon)._min_y : b_y - b_radius;
-	const b_max_x = b_polygon ? (b as Polygon)._max_x : b_x + b_radius;
-	const b_max_y = b_polygon ? (b as Polygon)._max_y : b_y + b_radius;
+	const b_radius = isCircle(b) ? b.radius * b.scale : 0;
+	const b_min_x = b_polygon ? b._min_x : b_x - b_radius;
+	const b_min_y = b_polygon ? b._min_y : b_y - b_radius;
+	const b_max_x = b_polygon ? b._max_x : b_x + b_radius;
+	const b_max_y = b_polygon ? b._max_y : b_y + b_radius;
 
 	return a_min_x < b_max_x && a_min_y < b_max_y && a_max_x > b_min_x && a_max_y > b_min_y;
 }
@@ -116,13 +112,13 @@ function aabbAABB(a: SomeBody, b: SomeBody): boolean {
  * 		result: A Result object on which to store information about the collision
  */
 function polygonPolygon(a: Polygon, b: Polygon, result: Result | null = null): boolean {
-	const a_count = a._coords!.length;
-	const b_count = b._coords!.length;
+	const a_count = a._coords.length;
+	const b_count = b._coords.length;
 
 	// Handle points specially
 	if (a_count === 2 && b_count === 2) {
-		const a_coords = a._coords!;
-		const b_coords = b._coords!;
+		const a_coords = a._coords;
+		const b_coords = b._coords;
 
 		if (result) {
 			result.overlap = 0;
@@ -131,10 +127,10 @@ function polygonPolygon(a: Polygon, b: Polygon, result: Result | null = null): b
 		return a_coords[0] === b_coords[0] && a_coords[1] === b_coords[1];
 	}
 
-	const a_coords = a._coords!;
-	const b_coords = b._coords!;
-	const a_normals = a._normals!;
-	const b_normals = b._normals!;
+	const a_coords = a._coords;
+	const b_coords = b._coords;
+	const a_normals = a._normals;
+	const b_normals = b._normals;
 
 	if (a_count > 2) {
 		for (let ix = 0, iy = 1; ix < a_count; ix += 2, iy += 2) {
@@ -168,9 +164,9 @@ function polygonCircle(
 	result: Result | null = null,
 	reverse = false,
 ): boolean {
-	const a_coords = a._coords!;
-	const a_edges = a._edges!;
-	const a_normals = a._normals!;
+	const a_coords = a._coords;
+	const a_edges = a._edges;
+	const a_normals = a._normals;
 	const b_x = b.x;
 	const b_y = b.y;
 	const b_radius = b.radius * b.scale;
@@ -180,7 +176,7 @@ function polygonCircle(
 
 	let a_in_b = true;
 	let b_in_a = true;
-	let overlap = null;
+	let overlap = 0;
 	let overlap_x = 0;
 	let overlap_y = 0;
 
@@ -340,23 +336,23 @@ function separatingAxis(
 	const a_count = a_coords.length;
 	const b_count = b_coords.length;
 
-	if (!a_count || !b_count) {
+	if (a_count === 0 || b_count === 0) {
 		return true;
 	}
 
-	let a_start: number | null = null;
-	let a_end: number | null = null;
-	let b_start: number | null = null;
-	let b_end: number | null = null;
+	let a_start = Infinity;
+	let a_end = -Infinity;
+	let b_start = Infinity;
+	let b_end = -Infinity;
 
 	for (let ix = 0, iy = 1; ix < a_count; ix += 2, iy += 2) {
 		const dot = a_coords[ix] * x + a_coords[iy] * y;
 
-		if (a_start === null || a_start > dot) {
+		if (a_start > dot) {
 			a_start = dot;
 		}
 
-		if (a_end === null || a_end < dot) {
+		if (a_end < dot) {
 			a_end = dot;
 		}
 	}
@@ -364,43 +360,43 @@ function separatingAxis(
 	for (let ix = 0, iy = 1; ix < b_count; ix += 2, iy += 2) {
 		const dot = b_coords[ix] * x + b_coords[iy] * y;
 
-		if (b_start === null || b_start > dot) {
+		if (b_start > dot) {
 			b_start = dot;
 		}
 
-		if (b_end === null || b_end < dot) {
+		if (b_end < dot) {
 			b_end = dot;
 		}
 	}
 
-	if (a_start! > b_end! || a_end! < b_start!) {
+	if (a_start > b_end || a_end < b_start) {
 		return true;
 	}
 
 	if (result) {
 		let overlap = 0;
 
-		if (a_start! < b_start!) {
+		if (a_start < b_start) {
 			result.a_in_b = false;
 
-			if (a_end! < b_end!) {
-				overlap = a_end! - b_start!;
+			if (a_end < b_end) {
+				overlap = a_end - b_start;
 				result.b_in_a = false;
 			} else {
-				const option1 = a_end! - b_start!;
-				const option2 = b_end! - a_start!;
+				const option1 = a_end - b_start;
+				const option2 = b_end - a_start;
 
 				overlap = option1 < option2 ? option1 : -option2;
 			}
 		} else {
 			result.b_in_a = false;
 
-			if (a_end! > b_end!) {
-				overlap = a_start! - b_end!;
+			if (a_end > b_end) {
+				overlap = a_start - b_end;
 				result.a_in_b = false;
 			} else {
-				const option1 = a_end! - b_start!;
-				const option2 = b_end! - a_start!;
+				const option1 = a_end - b_start;
+				const option2 = b_end - a_start;
 
 				overlap = option1 < option2 ? option1 : -option2;
 			}
