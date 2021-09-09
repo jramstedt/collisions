@@ -268,7 +268,7 @@ function polygonCircle(
 				}
 			}
 
-			if (tmp_overlapping && (overlap === null || overlap > tmp_overlap)) {
+			if (tmp_overlapping && (overlap === 0 || overlap > tmp_overlap)) {
 				overlap = tmp_overlap;
 				overlap_x = tmp_overlap_x;
 				overlap_y = tmp_overlap_y;
@@ -405,8 +405,8 @@ function separatingAxis(
 		const current_overlap = result.overlap;
 		const absolute_overlap = overlap < 0 ? -overlap : overlap;
 
-		if (current_overlap === null || current_overlap > absolute_overlap) {
-			const sign = overlap < 0 ? -1 : 1;
+		if (current_overlap === 0 || current_overlap > absolute_overlap) {
+			const sign = Math.sign(overlap);
 
 			result.overlap = absolute_overlap;
 			result.overlap_x = x * sign;
