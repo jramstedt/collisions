@@ -194,8 +194,14 @@ function polygonCircle(
 			const length = Math.sqrt(length_squared);
 
 			overlap = b_radius - length;
-			overlap_x = coord_x / length;
-			overlap_y = coord_y / length;
+			if (length > 0) {
+				overlap_x = coord_x / length;
+				overlap_y = coord_y / length;
+			} else {
+				overlap_x = 1.0;
+				overlap_y = 1.0;
+			}
+
 			b_in_a = false;
 		}
 	} else {
@@ -241,8 +247,15 @@ function polygonCircle(
 
 						tmp_overlapping = true;
 						tmp_overlap = b_radius - length;
-						tmp_overlap_x = target_x / length;
-						tmp_overlap_y = target_y / length;
+
+						if (length > 0) {
+							tmp_overlap_x = target_x / length;
+							tmp_overlap_y = target_y / length;
+						} else {
+							tmp_overlap_x = 1.0;
+							tmp_overlap_y = 1.0;
+						}
+
 						b_in_a = false;
 					}
 				}
@@ -311,8 +324,13 @@ function circleCircle(a: Circle, b: Circle, result: Result | null = null): boole
 		result.a_in_b = a_radius <= b_radius && length <= b_radius - a_radius;
 		result.b_in_a = b_radius <= a_radius && length <= a_radius - b_radius;
 		result.overlap = radius_sum - length;
-		result.overlap_x = difference_x / length;
-		result.overlap_y = difference_y / length;
+		if (length > 0) {
+			result.overlap_x = difference_x / length;
+			result.overlap_y = difference_y / length;
+		} else {
+			result.overlap_x = 1.0;
+			result.overlap_y = 1.0;
+		}
 	}
 
 	return true;
